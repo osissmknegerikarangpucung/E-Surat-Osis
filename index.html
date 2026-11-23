@@ -1,0 +1,2007 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>E-Surat OSIS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper-bg: #ffffff;
+      --ink-main: #111827;
+      --ink-muted: #4b5563;
+      --accent-navy: #0f294a;
+      --accent-gold: #9a7424;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #dbe3ec;
+      color: var(--ink-main);
+    }
+
+    /* Area pratinjau agar kertas putih tampil penuh (full sheet) di berbagai ukuran layar */
+    .preview-stage {
+      width: 100%;
+      overflow-x: auto;
+      padding: 12px 6px 36px 6px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+    }
+
+    .paper-scale-box {
+      transform-origin: top center;
+      transition: transform 0.15s ease-out;
+    }
+
+    /* Lembar kertas putih A4 klasik */
+    .naskah-paper {
+      font-family: 'Libre Baskerville', Georgia, 'Times New Roman', serif;
+      background-color: var(--paper-bg);
+      color: #000000;
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 18mm 20mm;
+      box-shadow: 0 22px 50px -14px rgba(15, 41, 74, 0.25), 0 0 0 1px rgba(15, 23, 42, 0.12);
+      line-height: 1.55;
+      font-size: 10.5pt;
+      box-sizing: border-box;
+    }
+
+    .naskah-sans {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .naskah-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      margin-bottom: 12px;
+      font-size: 9.2pt;
+      line-height: 1.4;
+    }
+
+    .naskah-table th,
+    .naskah-table td {
+      border: 1px solid #111827;
+      padding: 5px 8px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .naskah-table th {
+      background-color: #f8fafc;
+      font-weight: 700;
+    }
+
+    /* Indikator visual Batas Halaman di layar pratinjau */
+    .page-break-marker {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+    }
+
+    .page-break-marker::before {
+      content: "";
+      position: absolute;
+      left: -14mm;
+      right: -14mm;
+      top: 50%;
+      border-top: 2px dashed #0f294a;
+      z-index: 1;
+    }
+
+    .page-break-badge {
+      position: relative;
+      z-index: 2;
+      font-family: 'Inter', sans-serif;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #0f294a;
+      background-color: #f8fafc;
+      border: 1.5px solid #0f294a;
+      border-radius: 999px;
+      padding: 3px 12px;
+      box-shadow: 0 2px 6px rgba(15, 41, 74, 0.14);
+    }
+
+    /* Mode halaman terpisah (paginated visual preview) */
+    .paginated-mode .page-break-marker {
+      background-color: #dbe3ec;
+      margin-left: -20mm;
+      margin-right: -20mm;
+      padding-top: 18px;
+      padding-bottom: 18px;
+      box-shadow: inset 0 8px 12px -10px rgba(15, 23, 42, 0.25), inset 0 -8px 12px -10px rgba(15, 23, 42, 0.25);
+    }
+
+    /* Aturan cetak murni: hanya kertas putih yang tercetak tanpa panel kontrol atau badge layar */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 15mm 18mm;
+      }
+
+      html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      .no-print,
+      .page-break-marker {
+        display: none !important;
+      }
+
+      .print-wrapper,
+      .preview-stage,
+      .paper-scale-box {
+        padding: 0 !important;
+        margin: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        height: auto !important;
+        display: block !important;
+        transform: none !important;
+        overflow: visible !important;
+      }
+
+      .naskah-paper {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        font-size: 10.5pt !important;
+      }
+
+      .page-break-before {
+        page-break-before: always;
+        break-before: page;
+      }
+
+      .avoid-break {
+        page-break-inside: avoid;
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen antialiased selection:bg-blue-900 selection:text-white">
+  <!-- Toast / Notifikasi Non-Alert -->
+  <div id="toast-box" class="no-print fixed bottom-5 right-5 z-50 hidden max-w-sm rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-xl border border-slate-700 transition-all">
+    <span id="toast-message"></span>
+  </div>
+
+  <!-- Top Bar / Header Aplikasi (Tanpa logo OSIS di header/topbar) -->
+  <header class="no-print sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div class="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+      <div class="flex items-center gap-3">
+        <!-- Badge minimalis netral (bukan logo OSIS) -->
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-slate-100 text-slate-700">
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-tight text-slate-900 sm:text-lg">
+            E-Surat OSIS
+          </h1>
+          <p class="text-xs text-slate-500">
+            Kabinet Bergerak Berdampak • OSIS SMK Negeri Karangpucung • Penandatangan Tunggal: Presiden Kabinet
+          </p>
+        </div>
+      </div>
+
+      <!-- Tombol Aksi Utama -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          id="btn-reset-default"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99] transition cursor-pointer"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg>
+          Muat Ulang Contoh SK
+        </button>
+
+        <button
+          type="button"
+          id="btn-copy-text"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99] transition cursor-pointer"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Salin Teks
+        </button>
+
+        <button
+          type="button"
+          id="btn-download-html"
+          class="inline-flex items-center gap-1.5 rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 active:scale-[0.99] transition cursor-pointer"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Unduh Naskah (.html)
+        </button>
+
+        <button
+          type="button"
+          id="btn-print"
+          class="inline-flex items-center gap-1.5 rounded-xl bg-[#0f294a] px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-[#173b69] active:scale-[0.99] transition cursor-pointer"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+          Cetak / Simpan PDF
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Kontainer Utama -->
+  <main class="mx-auto max-w-[1440px] px-4 py-5 sm:px-6">
+    <div class="grid grid-cols-1 gap-6 xl:grid-cols-12 items-start">
+      <!-- PANEL KONTROL / FORM EDITOR (Kiri) -->
+      <section class="no-print xl:col-span-5 rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <!-- Tab Jenis Surat -->
+        <div class="border-b border-slate-200 bg-slate-50/80 p-3">
+          <label class="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-2">
+            1. Pilih Jenis Naskah Dinas
+          </label>
+          <div id="doc-type-tabs" class="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+            <button type="button" data-type="sk" class="doc-tab rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer bg-[#0f294a] text-white shadow-xs">
+              Surat Keputusan (SK)
+            </button>
+            <button type="button" data-type="pemberitahuan" class="doc-tab rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
+              Surat Pemberitahuan
+            </button>
+            <button type="button" data-type="perintah" class="doc-tab rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
+              Surat Perintah
+            </button>
+            <button type="button" data-type="tugas" class="doc-tab rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer bg-white text-slate-700 border border-slate-200 hover:bg-slate-100">
+              Surat Tugas
+            </button>
+            <button type="button" data-type="edaran" class="doc-tab rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer bg-white text-slate-700 border border-slate-200 hover:bg-slate-100 col-span-2 sm:col-span-2">
+              Surat Edaran
+            </button>
+          </div>
+        </div>
+
+        <!-- Form Input -->
+        <div class="p-4 sm:p-5 space-y-5 max-h-[82vh] overflow-y-auto">
+          <!-- Preset Cepat Data Kabinet -->
+          <div class="rounded-xl border border-amber-200 bg-amber-50/70 p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-950">Preset Cepat Pejabat &amp; Kabinet (2026/2027)</span>
+              <span class="rounded-md bg-amber-200/80 px-2 py-0.5 text-[10px] font-semibold text-amber-950">SK Kabinet</span>
+            </div>
+            <p class="text-[11px] leading-relaxed text-amber-900">
+              Pilih pejabat dari struktur Kabinet Bergerak Berdampak untuk mengisi cepat nama/jabatan target atau menerapkan skenario surat.
+            </p>
+            <div class="grid grid-cols-1 gap-2">
+              <select id="preset-pejabat" class="w-full rounded-xl border border-amber-300 bg-white px-3 py-2 text-xs font-medium text-slate-800 focus:border-[#0f294a] focus:outline-none">
+                <option value="">-- Pilih Pejabat Kabinet (Isi Otomatis) --</option>
+              </select>
+              <div class="flex flex-wrap gap-1.5">
+                <button type="button" data-scenario="sk_kabinet" class="scenario-btn rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100 transition cursor-pointer">
+                  Contoh: SK Kabinet Lengkap
+                </button>
+                <button type="button" data-scenario="pemberitahuan_rapat" class="scenario-btn rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100 transition cursor-pointer">
+                  Contoh: Pemberitahuan Koordinasi
+                </button>
+                <button type="button" data-scenario="perintah_kegiatan" class="scenario-btn rounded-lg border border-amber-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-amber-950 hover:bg-amber-100 transition cursor-pointer">
+                  Contoh: Perintah Pelaksanaan
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Pengaturan Logo OSIS, Ukuran Logo, Tanda Tangan & Cap Stempel -->
+          <div class="rounded-xl border border-slate-200 bg-slate-50/75 p-3.5 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-1.5">
+              <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Logo OSIS, Tanda Tangan &amp; Cap Stempel
+              </h2>
+              <span class="text-[10px] font-semibold text-slate-500">Real-Time</span>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2 text-xs">
+              <label class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 font-medium text-slate-700 cursor-pointer">
+                <input id="toggle-logo" type="checkbox" checked class="h-3.5 w-3.5 rounded border-slate-300 text-[#0f294a]" />
+                <span>Logo OSIS</span>
+              </label>
+              <label class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 font-medium text-slate-700 cursor-pointer">
+                <input id="toggle-ttd" type="checkbox" checked class="h-3.5 w-3.5 rounded border-slate-300 text-[#0f294a]" />
+                <span>Tanda Tangan</span>
+              </label>
+              <label class="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-2 font-medium text-slate-700 cursor-pointer">
+                <input id="toggle-stempel" type="checkbox" checked class="h-3.5 w-3.5 rounded border-slate-300 text-[#0f294a]" />
+                <span>Cap Stempel</span>
+              </label>
+            </div>
+
+            <!-- Kontrol Ukuran Logo OSIS Besar di Atas Judul Surat -->
+            <div class="rounded-lg border border-slate-200 bg-white p-2.5 space-y-2">
+              <div class="flex items-center justify-between">
+                <label for="range-logo-size" class="text-xs font-semibold text-slate-800">
+                  Ukuran Logo OSIS (di Atas Judul Surat)
+                </label>
+                <div class="flex items-center gap-1">
+                  <input
+                    id="input-logo-px"
+                    type="number"
+                    min="70"
+                    max="220"
+                    value="136"
+                    class="w-16 rounded-md border border-slate-300 px-1.5 py-0.5 text-right text-xs font-bold text-[#0f294a]"
+                  />
+                  <span class="text-[11px] font-semibold text-slate-500">px</span>
+                </div>
+              </div>
+              <input id="range-logo-size" type="range" min="70" max="220" value="136" class="w-full accent-[#0f294a] cursor-pointer" />
+              <div class="grid grid-cols-4 gap-1.5 pt-0.5">
+                <button type="button" data-logo-preset="96" class="logo-preset-btn rounded-md border border-slate-200 bg-slate-50 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
+                  Kecil (96)
+                </button>
+                <button type="button" data-logo-preset="118" class="logo-preset-btn rounded-md border border-slate-200 bg-slate-50 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
+                  Sedang (118)
+                </button>
+                <button type="button" data-logo-preset="136" class="logo-preset-btn rounded-md border border-[#0f294a] bg-[#0f294a] py-1 text-[11px] font-semibold text-white cursor-pointer">
+                  Besar (136)
+                </button>
+                <button type="button" data-logo-preset="168" class="logo-preset-btn rounded-md border border-slate-200 bg-slate-50 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
+                  Sangat Besar (168)
+                </button>
+              </div>
+            </div>
+
+            <!-- Kontrol Tanda Tangan & Cap Stempel -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="range-ttd-size" class="flex justify-between text-[11px] font-semibold text-slate-700 mb-1">
+                  <span>Ukuran Tanda Tangan</span>
+                  <span id="val-ttd-size">84px</span>
+                </label>
+                <input id="range-ttd-size" type="range" min="48" max="130" value="84" class="w-full accent-[#0f294a] cursor-pointer" />
+              </div>
+              <div>
+                <label for="range-stempel-size" class="flex justify-between text-[11px] font-semibold text-slate-700 mb-1">
+                  <span>Ukuran Cap Stempel</span>
+                  <span id="val-stempel-size">108px</span>
+                </label>
+                <input id="range-stempel-size" type="range" min="70" max="150" value="108" class="w-full accent-[#0f294a] cursor-pointer" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="range-stempel-x" class="flex justify-between text-[11px] font-semibold text-slate-700 mb-1">
+                  <span>Geser Horizontal Stempel</span>
+                  <span id="val-stempel-x">-38px</span>
+                </label>
+                <input id="range-stempel-x" type="range" min="-90" max="50" value="-38" class="w-full accent-[#0f294a] cursor-pointer" />
+              </div>
+              <div>
+                <label for="range-stempel-opacity" class="flex justify-between text-[11px] font-semibold text-slate-700 mb-1">
+                  <span>Ketajaman Stempel</span>
+                  <span id="val-stempel-opacity">88%</span>
+                </label>
+                <input id="range-stempel-opacity" type="range" min="30" max="100" value="88" class="w-full accent-[#0f294a] cursor-pointer" />
+              </div>
+            </div>
+
+            <!-- Input Link / Unggah File Lokal Cadangan -->
+            <details class="text-[11px] text-slate-600">
+              <summary class="cursor-pointer font-semibold text-slate-700 hover:text-[#0f294a]">
+                Link Google Drive / Unggah File Lokal Cadangan (Opsional)
+              </summary>
+              <div class="mt-2 space-y-2.5 border-t border-slate-200 pt-2">
+                <div>
+                  <label for="input-logo-url" class="block font-semibold text-slate-700 mb-0.5">Link / URL Logo OSIS</label>
+                  <input id="input-logo-url" type="text" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px]" />
+                  <input id="file-logo-upload" type="file" accept="image/*" class="mt-1 block w-full text-[10px] text-slate-500" />
+                </div>
+                <div>
+                  <label for="input-ttd-url" class="block font-semibold text-slate-700 mb-0.5">Link / URL Tanda Tangan Arofah Alhidayah</label>
+                  <input id="input-ttd-url" type="text" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px]" />
+                  <input id="file-ttd-upload" type="file" accept="image/*" class="mt-1 block w-full text-[10px] text-slate-500" />
+                </div>
+                <div>
+                  <label for="input-stempel-url" class="block font-semibold text-slate-700 mb-0.5">Link / URL Cap Stempel OSIS</label>
+                  <input id="input-stempel-url" type="text" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px]" />
+                  <input id="file-stempel-upload" type="file" accept="image/*" class="mt-1 block w-full text-[10px] text-slate-500" />
+                </div>
+              </div>
+            </details>
+          </div>
+
+          <!-- Pengaturan Batas Halaman (Page Break) yang Dapat Ditentukan -->
+          <div class="rounded-xl border border-slate-200 bg-slate-50/75 p-3.5 space-y-2.5">
+            <div class="flex items-center justify-between border-b border-slate-200 pb-1.5">
+              <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">
+                Batas Halaman (Page Break)
+              </h2>
+              <span class="text-[10px] font-semibold text-slate-500">Preview &amp; Cetak</span>
+            </div>
+
+            <div>
+              <label for="select-page-view-mode" class="block text-[11px] font-semibold text-slate-700 mb-1">
+                Mode Tampilan Batas Halaman di Preview
+              </label>
+              <select id="select-page-view-mode" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs font-medium text-slate-800">
+                <option value="marker" selected>Garis Batas Halaman Jelas (Direkomendasikan)</option>
+                <option value="paginated">Halaman Terpisah Visual (Paginated)</option>
+                <option value="hidden">Sembunyikan Garis (Tetap Cetak Ganti Halaman)</option>
+              </select>
+            </div>
+
+            <label id="wrap-break-memutuskan" class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+              <input id="toggle-break-memutuskan" type="checkbox" class="h-3.5 w-3.5 rounded border-slate-300 text-[#0f294a]" />
+              <span>Batas halaman sebelum <strong>MEMUTUSKAN</strong></span>
+            </label>
+
+            <label class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+              <input id="toggle-break-ttd" type="checkbox" class="h-3.5 w-3.5 rounded border-slate-300 text-[#0f294a]" />
+              <span>Batas halaman sebelum <strong>Tanda Tangan &amp; Stempel</strong></span>
+            </label>
+
+            <label id="wrap-break-lampiran" class="flex items-center gap-2 text-xs font-medium text-slate-700 cursor-pointer">
+              <input id="toggle-break-lampiran" type="checkbox" checked class="h-3.5 w-3.5 rounded border-slate-300 text-[#0f294a]" />
+              <span>Batas halaman sebelum <strong>Lampiran I</strong> (SK)</span>
+            </label>
+
+            <div class="pt-1 border-t border-slate-200 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-semibold text-slate-700">Batas Halaman Kustom Tambahan</span>
+                <button type="button" id="btn-add-custom-break" class="rounded-md bg-[#0f294a] px-2 py-1 text-[10px] font-semibold text-white hover:bg-[#173b69] cursor-pointer">
+                  + Tambah Batas
+                </button>
+              </div>
+              <div id="custom-breaks-list" class="space-y-1.5">
+                <!-- Daftar batas halaman kustom dirender via JS -->
+              </div>
+            </div>
+          </div>
+
+          <!-- Identitas Penandatangan Tunggal (Presiden Kabinet) -->
+          <div class="space-y-3">
+            <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">
+              2. Identitas Kabinet &amp; Penandatangan Tunggal
+            </h2>
+
+            <div>
+              <label for="kabinet-title" class="block text-xs font-semibold text-slate-700 mb-1">Sebutan Jabatan Penandatangan</label>
+              <input id="kabinet-title" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none" />
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="org-name" class="block text-xs font-semibold text-slate-700 mb-1">Nama Organisasi</label>
+                <input id="org-name" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none" />
+              </div>
+              <div>
+                <label for="periode-name" class="block text-xs font-semibold text-slate-700 mb-1">Periode Jabatan</label>
+                <input id="periode-name" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="presiden-nama" class="block text-xs font-semibold text-slate-700 mb-1">Nama Presiden Kabinet (Ketua OSIS)</label>
+                <input id="presiden-nama" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900 focus:border-[#0f294a] focus:outline-none" />
+              </div>
+              <div>
+                <label for="tempat-ditetapkan" class="block text-xs font-semibold text-slate-700 mb-1">Tempat Ditetapkan</label>
+                <input id="tempat-ditetapkan" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label for="nomor-surat" class="block text-xs font-semibold text-slate-700 mb-1">Nomor Surat</label>
+                <input id="nomor-surat" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none" />
+              </div>
+              <div>
+                <label for="tanggal-surat" class="block text-xs font-semibold text-slate-700 mb-1">Tanggal Surat</label>
+                <input id="tanggal-surat" type="text" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Bagian Dinamis Sesuai Jenis Naskah -->
+          <div id="dynamic-fields" class="space-y-3">
+            <!-- Diisi otomatis via JavaScript sesuai jenis surat -->
+          </div>
+
+          <!-- Catatan Keabsahan Tunggal -->
+          <div class="rounded-xl bg-slate-100 px-3.5 py-2.5 text-[11px] text-slate-600">
+            <strong>Format Naskah Dinas Tunggal:</strong> Seluruh naskah ditandatangani secara eksklusif oleh <strong>Presiden Kabinet Bergerak Berdampak</strong> tanpa kolom tanda tangan Pembina maupun Sekretaris.
+          </div>
+        </div>
+      </section>
+
+      <!-- PREVIEW LEMBAR KERTAS PUTIH PENUH (Kanan) -->
+      <section class="print-wrapper xl:col-span-7 flex flex-col items-center w-full">
+        <div class="no-print mb-2 flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 shadow-xs">
+          <div class="flex items-center gap-2 text-xs">
+            <span class="font-semibold text-slate-800" id="active-doc-label">Keputusan Presiden Kabinet</span>
+            <span class="text-slate-400">•</span>
+            <span class="text-slate-500">Kertas Putih Penuh (A4)</span>
+          </div>
+
+          <div class="flex items-center gap-1 text-xs">
+            <button type="button" data-zoom="fit" class="zoom-btn rounded-lg bg-[#0f294a] px-2.5 py-1 text-[11px] font-semibold text-white cursor-pointer">
+              Kertas Full
+            </button>
+            <button type="button" data-zoom="0.72" class="zoom-btn rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
+              72%
+            </button>
+            <button type="button" data-zoom="0.88" class="zoom-btn rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
+              88%
+            </button>
+            <button type="button" data-zoom="1" class="zoom-btn rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer">
+              100%
+            </button>
+          </div>
+        </div>
+
+        <div id="preview-stage" class="preview-stage">
+          <div id="paper-scale-box" class="paper-scale-box">
+            <article id="paper-preview" class="naskah-paper" aria-label="Pratinjau Naskah Dinas">
+              <!-- Konten naskah dinas dirender secara dinamis di sini -->
+            </article>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    /**
+     * Helper Konversi Link Google Drive ke URL direct thumbnail/view dengan fallback otomatis
+     */
+    function buildDriveUrlPair(id, sz = "w1000") {
+      return {
+        id,
+        primary: `https://drive.google.com/thumbnail?id=${id}&sz=${sz}`,
+        secondary: `https://lh3.googleusercontent.com/d/${id}`,
+        fallback: `https://drive.google.com/uc?export=view&id=${id}`
+      };
+    }
+
+    const DRIVE_ASSETS = {
+      logoOsis: buildDriveUrlPair("1NepfOTmcIWpzKnFWDwireRq0dCqgXgZD", "w1000"),
+      ttdPresiden: buildDriveUrlPair("1sh19aE5gT20LH2O7dbpCoVVX3PMpq7oj", "w800"),
+      stempelOsis: buildDriveUrlPair("18ejfJ2FU5A8_Kw_TTRbFJ2AkF5XqgM1H", "w800")
+    };
+
+    function resolveAssetSources(rawInput, defaultPair) {
+      const cleaned = String(rawInput || "").trim();
+      if (!cleaned) {
+        return {
+          src: defaultPair.primary,
+          alt1: defaultPair.secondary,
+          alt2: defaultPair.fallback
+        };
+      }
+      if (cleaned.startsWith("data:") || cleaned.startsWith("blob:")) {
+        return { src: cleaned, alt1: "", alt2: "" };
+      }
+      const match = cleaned.match(/\/d\/([a-zA-Z0-9_-]+)/) || cleaned.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+      if (match && match[1]) {
+        const id = match[1];
+        return {
+          src: `https://drive.google.com/thumbnail?id=${id}&sz=w1000`,
+          alt1: `https://lh3.googleusercontent.com/d/${id}`,
+          alt2: `https://drive.google.com/uc?export=view&id=${id}`
+        };
+      }
+      return { src: cleaned, alt1: defaultPair.secondary, alt2: defaultPair.fallback };
+    }
+
+    /**
+     * Data Master Kabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung (2026/2027)
+     */
+    const KABINET_DATA = {
+      pimpinan: [
+        { kategori: "Pimpinan Kabinet", jabatan: "Presiden", nama: "Arofah Alhidayah" },
+        { kategori: "Pimpinan Kabinet", jabatan: "Wakil Presiden", nama: "Salsabila Afifah" }
+      ],
+      sekretariat: [
+        { kategori: "Sekretariat Kabinet", jabatan: "Sekretaris Kabinet", nama: "Nur Widyanigsih" },
+        { kategori: "Sekretariat Kabinet", jabatan: "Wakil Sekretaris Kabinet", nama: "Najwa Nataniela" }
+      ],
+      bendahara: [
+        { kategori: "Bendahara Kabinet", jabatan: "Bendahara Kabinet", nama: "Elvina Ataya Zhafirah" },
+        { kategori: "Bendahara Kabinet", jabatan: "Wakil Bendahara Kabinet", nama: "Erviana Sari" }
+      ],
+      menko: [
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pembinaan dan Ketakwaan kepada Tuhan Yang Maha Esa", nama: "Nur Alamsyah" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pembinaan Kepribadian dan Budi Pekerti Luhur", nama: "Heppy Aulia Juliani" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pembinaan Pendidikan dan Pendahuluan Bela Negara", nama: "Keysa Regina Putri" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pembinaan Prestasi Akademik", nama: "Clarissa Uzi Oktavia" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Demokrasi, Pembinaan Pancasila, Hak Asasi Manusia, Pendidikan Politik dan Pengabdian Masyarakat", nama: "Shafira Nur Muslimah" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pembinaan Kreativitas, Keterampilan dan Kewirausahaan", nama: "Kamila Regina Putri" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pembinaan Kebugaran Jasmani dan Kualitas Kesehatan", nama: "Amelia Rezkiyani" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pembinaan Seni, Sastra dan Budaya", nama: "Widia Febianti" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pembinaan Teknologi, Komunikasi dan Informasi", nama: "Muhammad Hassan Tholabi" },
+        { kategori: "Menteri Koordinator", jabatan: "Menteri Koordinator Bidang Pengembangan Kemampuan Berbahasa", nama: "Jamilatun Sholehah" }
+      ],
+      menteriBidang: [
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Kegiatan", nama: "Amelia Rezkiyani" },
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Konsumsi", nama: "Jamilatun Sholehah" },
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Perlengkapan", nama: "Fajar Dwi Sasongko" },
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Kebersihan", nama: "Andini Rahayu" },
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Hubungan Masyarakat (Humas)", nama: "Muhammad Yahdi Rahadian Maulana" },
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Dokumentasi", nama: "Kirana Dwi Ramadhani" },
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Dekorasi", nama: "Pramesti Eka Rahmawati" },
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Aspirasi dan Pelayanan Siswa", nama: "Annas Ghalib Firdaus" },
+        { kategori: "Menteri Bidang", jabatan: "Menteri Bidang Kewirausahaan dan Ekonomi Kreatif", nama: "Salwa Ardenita Putri" }
+      ],
+      rangkapJabatan: [
+        "1. Amelia Rezkiyani merangkap jabatan sebagai Menteri Koordinator Bidang Pembinaan Kebugaran Jasmani dan Kualitas Kesehatan serta Menteri Bidang Kegiatan.",
+        "2. Jamilatun Sholehah merangkap jabatan sebagai Menteri Koordinator Bidang Pengembangan Kemampuan Berbahasa serta Menteri Bidang Konsumsi."
+      ]
+    };
+
+    const ALL_PEJABAT = [
+      ...KABINET_DATA.pimpinan,
+      ...KABINET_DATA.sekretariat,
+      ...KABINET_DATA.bendahara,
+      ...KABINET_DATA.menko,
+      ...KABINET_DATA.menteriBidang
+    ];
+
+    /**
+     * State Aplikasi
+     */
+    const state = {
+      docType: "sk", // 'sk' | 'pemberitahuan' | 'perintah' | 'tugas' | 'edaran'
+      kabinetTitle: "PRESIDEN KABINET BERGERAK BERDAMPAK",
+      orgName: "ORGANISASI SISWA INTRA SEKOLAH (OSIS) SMK NEGERI KARANGPUCUNG",
+      periodeName: "PERIODE 2026/2027",
+      presidenNama: "AROFAH ALHIDAYAH",
+      tempatDitetapkan: "Karangpucung",
+      nomorSurat: "001/SK-KBB/OSIS/2026",
+      tanggalSurat: "......................... 2026",
+
+      // Pengaturan Logo OSIS, Tanda Tangan & Cap Stempel
+      assets: {
+        showLogo: true,
+        showTtd: true,
+        showStempel: true,
+        logoUrl: DRIVE_ASSETS.logoOsis.primary,
+        ttdUrl: DRIVE_ASSETS.ttdPresiden.primary,
+        stempelUrl: DRIVE_ASSETS.stempelOsis.primary,
+        logoSize: 136,
+        ttdSize: 84,
+        stempelSize: 108,
+        stempelX: -38,
+        stempelOpacity: 0.88
+      },
+
+      // Pengaturan Preview Penuh & Batas Halaman
+      pageBreaks: {
+        zoomMode: "fit", // 'fit' | number
+        viewMode: "marker", // 'marker' | 'paginated' | 'hidden'
+        breakBeforeMemutuskan: false,
+        breakBeforeTtd: false,
+        breakBeforeLampiran: true,
+        customBreaks: [] // array of { id, afterIndex, label }
+      },
+
+      // Khusus Surat Keputusan (SK)
+      sk: {
+        judul: "KEPUTUSAN PRESIDEN KABINET BERGERAK BERDAMPAK",
+        tentang: "PENETAPAN SUSUNAN MENTERI DAN PEJABAT\nKABINET BERGERAK BERDAMPAK\nORGANISASI SISWA INTRA SEKOLAH (OSIS)\nSMK NEGERI KARANGPUCUNG PERIODE 2026/2027",
+        menimbang: [
+          "bahwa dalam rangka mewujudkan tata kelola organisasi yang terstruktur, efektif, demokratis, dan bertanggung jawab, diperlukan susunan kabinet dengan pembagian tugas yang jelas;",
+          "bahwa untuk mendukung pelaksanaan program kerja OSIS SMK Negeri Karangpucung periode 2026/2027, diperlukan pejabat kabinet yang bertanggung jawab sesuai bidang masing-masing;",
+          "bahwa berdasarkan pertimbangan sebagaimana dimaksud pada huruf a dan b, perlu menetapkan Keputusan Presiden Kabinet Bergerak Berdampak tentang Susunan Menteri dan Pejabat Kabinet Periode 2026/2027."
+        ],
+        memperhatikan: "Hasil pembahasan dan penyusunan struktur Kabinet Bergerak Berdampak serta ketentuan organisasi OSIS SMK Negeri Karangpucung.",
+        diktum: [
+          { label: "KESATU", isi: "Menetapkan susunan pejabat Kabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung Periode 2026/2027 sebagaimana tercantum dalam Lampiran I yang merupakan bagian tidak terpisahkan dari keputusan ini." },
+          { label: "KEDUA", isi: "Setiap pejabat kabinet melaksanakan tugas, fungsi, dan tanggung jawab sesuai jabatan serta pembagian kerja yang ditetapkan dalam organisasi." },
+          { label: "KETIGA", isi: "Menteri Koordinator melaksanakan koordinasi sesuai bidangnya. Pejabat yang tercantum pada lebih dari satu jabatan melaksanakan rangkap jabatan sebagaimana tercantum dalam lampiran." },
+          { label: "KEEMPAT", isi: "Seluruh pejabat kabinet wajib menjunjung tinggi kedisiplinan, integritas, profesionalisme, tanggung jawab, serta mengutamakan kepentingan warga sekolah." },
+          { label: "KELIMA", isi: "Keputusan ini merupakan penetapan internal kabinet dan pelaksanaannya tetap memperhatikan persetujuan, pembinaan, serta ketentuan yang berlaku di SMK Negeri Karangpucung." },
+          { label: "KEENAM", isi: "Keputusan ini mulai berlaku sejak tanggal ditetapkan. Apabila di kemudian hari terdapat kekeliruan, akan dilakukan perbaikan sebagaimana mestinya." }
+        ],
+        sertakanLampiran: true
+      },
+
+      // Khusus Surat Pemberitahuan
+      pemberitahuan: {
+        sifat: "Penting",
+        lampiran: "-",
+        hal: "Pemberitahuan Koordinasi & Pelaksanaan Program Kabinet",
+        tujuan: "Seluruh Menteri Koordinator dan Menteri Bidang\nKabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung",
+        pembuka: "Dengan hormat,\nSehubungan dengan berjalannya agenda kerja Kabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung Periode 2026/2027, melalui surat ini kami sampaikan pemberitahuan resmi sebagai berikut:",
+        isiPoin: [
+          "Seluruh Menteri Koordinator diharapkan mengkoordinasikan penyusunan rencana program kerja masing-masing kementerian di bawah koordinasinya.",
+          "Setiap Menteri Bidang wajib melaporkan kesiapan program, kebutuhan perlengkapan/administrasi, serta jadwal kegiatan secara terstruktur kepada Menteri Koordinator terkait.",
+          "Koordinasi lanjutan akan dilaksanakan sesuai jadwal yang ditetapkan oleh pimpinan kabinet."
+        ],
+        penutup: "Demikian surat pemberitahuan ini disampaikan untuk diperhatikan dan dilaksanakan sebagaimana mestinya. Atas perhatian dan kerja samanya kami ucapkan terima kasih."
+      },
+
+      // Khusus Surat Perintah
+      perintah: {
+        dasar: "1. Program Kerja Kabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung Periode 2026/2027.\n2. Hasil koordinasi pimpinan kabinet dalam rangka optimalisasi pelaksanaan kegiatan organisasi.",
+        kepadaNama: "Nur Alamsyah",
+        kepadaJabatan: "Menteri Koordinator Bidang Pembinaan dan Ketakwaan kepada Tuhan Yang Maha Esa",
+        untuk: "1. Mengkoordinasikan dan memimpin pelaksanaan kegiatan keagamaan serta pembinaan ketakwaan warga sekolah.\n2. Melaporkan hasil pelaksanaan tugas secara tertulis kepada Presiden Kabinet Bergerak Berdampak setelah kegiatan selesai dilaksanakan.",
+        waktuTempat: "Sesuai jadwal yang ditetapkan kabinet di lingkungan SMK Negeri Karangpucung."
+      },
+
+      // Khusus Surat Tugas
+      tugas: {
+        dasar: "Ketentuan tata kelola dan pembagian tugas Kabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung Periode 2026/2027.",
+        namaPejabat: "Amelia Rezkiyani",
+        jabatanPejabat: "Menteri Koordinator Bidang Pembinaan Kebugaran Jasmani dan Kualitas Kesehatan / Menteri Bidang Kegiatan",
+        uraianTugas: "Melaksanakan perencanaan teknis, koordinasi lapangan, dan pelaporan kegiatan kebugaran jasmani serta agenda kegiatan kabinet dengan penuh tanggung jawab.",
+        jangkaWaktu: "Periode 2026/2027 (sesuai penugasan kegiatan berjalan)."
+      },
+
+      // Khusus Surat Edaran
+      edaran: {
+        tentang: "PEDOMAN TERTIB ADMINISTRASI, KOORDINASI, DAN PELAPORAN KEGIATAN KABINET BERGERAK BERDAMPAK",
+        kepada: "Seluruh Pejabat, Menteri Koordinator, dan Menteri Bidang Kabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung",
+        isiEdaran: [
+          "1. Setiap unit kementerian wajib menjaga ketertiban administrasi, dokumentasi, dan alur komunikasi berjenjang dalam Kabinet Bergerak Berdampak.",
+          "2. Setiap kegiatan yang melibatkan lintas kementerian wajib dikoordinasikan terlebih dahulu melalui Menteri Koordinator terkait.",
+          "3. Ketentuan rangkap jabatan sebagaimana tercantum dalam Keputusan Presiden Kabinet tetap dijalankan secara profesional dan transparan."
+        ],
+        penutup: "Demikian surat edaran ini dibuat untuk menjadi pedoman bersama bagi seluruh jajaran Kabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung."
+      }
+    };
+
+    /**
+     * Utilitas Toast Notifikasi (pengganti alert)
+     */
+    function showToast(msg) {
+      try {
+        const box = document.getElementById("toast-box");
+        const textEl = document.getElementById("toast-message");
+        textEl.textContent = msg;
+        box.classList.remove("hidden");
+        clearTimeout(window.__toastTimer);
+        window.__toastTimer = setTimeout(() => {
+          box.classList.add("hidden");
+        }, 2800);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    /**
+     * Escape karakter HTML untuk keamanan rendering
+     */
+    function escapeHtml(str) {
+      if (str === null || str === undefined) return "";
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    /**
+     * Konversi baris baru (\n) menjadi <br>
+     */
+    function nl2br(str) {
+      return escapeHtml(str).replace(/\r?\n/g, "<br>");
+    }
+
+    /**
+     * Mengisi Dropdown Preset Pejabat Kabinet
+     */
+    function populatePejabatDropdown() {
+      const select = document.getElementById("preset-pejabat");
+      select.innerHTML = '<option value="">-- Pilih Pejabat Kabinet (Isi Otomatis) --</option>';
+
+      ALL_PEJABAT.forEach((p, idx) => {
+        const opt = document.createElement("option");
+        opt.value = String(idx);
+        opt.textContent = `${p.nama} — ${p.jabatan} (${p.kategori})`;
+        select.appendChild(opt);
+      });
+    }
+
+    /**
+     * Menerapkan preset pejabat ke field yang relevan pada surat aktif
+     */
+    function applyPejabatPreset(pejabat) {
+      if (!pejabat) return;
+      if (state.docType === "perintah") {
+        state.perintah.kepadaNama = pejabat.nama;
+        state.perintah.kepadaJabatan = pejabat.jabatan;
+      } else if (state.docType === "tugas") {
+        state.tugas.namaPejabat = pejabat.nama;
+        state.tugas.jabatanPejabat = pejabat.jabatan;
+      } else if (state.docType === "pemberitahuan") {
+        state.pemberitahuan.tujuan = `${pejabat.jabatan} (${pejabat.nama})\nKabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung`;
+      } else if (state.docType === "edaran") {
+        state.edaran.kepada = `${pejabat.jabatan} (${pejabat.nama}) dan Jajaran Kabinet Bergerak Berdampak`;
+      } else {
+        showToast(`Dipilih: ${pejabat.nama} (${pejabat.jabatan})`);
+      }
+      renderDynamicForm();
+      renderPaper();
+      showToast(`Data ${pejabat.nama} diterapkan`);
+    }
+
+    /**
+     * Menerapkan Skenario Contoh Cepat
+     */
+    function applyScenario(scenarioKey) {
+      if (scenarioKey === "sk_kabinet") {
+        state.docType = "sk";
+        state.nomorSurat = "001/SK-KBB/OSIS/2026";
+        state.sk.sertakanLampiran = true;
+        showToast("Skenario SK Kabinet Lengkap dimuat");
+      } else if (scenarioKey === "pemberitahuan_rapat") {
+        state.docType = "pemberitahuan";
+        state.nomorSurat = "002/SPb-KBB/OSIS/2026";
+        state.pemberitahuan.hal = "Pemberitahuan Rapat Koordinasi Menteri Koordinator & Menteri Bidang";
+        state.pemberitahuan.tujuan = "Nur Alamsyah (Menko Pembinaan & Ketakwaan) & Seluruh Pejabat Kabinet\nKabinet Bergerak Berdampak OSIS SMK Negeri Karangpucung";
+        showToast("Skenario Surat Pemberitahuan dimuat");
+      } else if (scenarioKey === "perintah_kegiatan") {
+        state.docType = "perintah";
+        state.nomorSurat = "003/SPr-KBB/OSIS/2026";
+        state.perintah.kepadaNama = "Nur Alamsyah";
+        state.perintah.kepadaJabatan = "Menteri Koordinator Bidang Pembinaan dan Ketakwaan kepada Tuhan Yang Maha Esa";
+        state.perintah.untuk = "1. Mengkoordinasikan penyusunan program pembinaan ketakwaan kepada Tuhan Yang Maha Esa.\n2. Melaporkan perkembangan pelaksanaan program kepada Presiden Kabinet Bergerak Berdampak.";
+        showToast("Skenario Surat Perintah dimuat");
+      }
+      syncHeaderInputs();
+      updateActiveTabStyles();
+      renderDynamicForm();
+      renderPaper();
+    }
+
+    /**
+     * Sinkronisasi input header/identitas umum dengan state
+     */
+    function syncHeaderInputs() {
+      document.getElementById("kabinet-title").value = state.kabinetTitle;
+      document.getElementById("org-name").value = state.orgName;
+      document.getElementById("periode-name").value = state.periodeName;
+      document.getElementById("presiden-nama").value = state.presidenNama;
+      document.getElementById("tempat-ditetapkan").value = state.tempatDitetapkan;
+      document.getElementById("nomor-surat").value = state.nomorSurat;
+      document.getElementById("tanggal-surat").value = state.tanggalSurat;
+    }
+
+    /**
+     * Update tampilan tab aktif & visibilitas kontrol batas halaman khusus SK
+     */
+    function updateActiveTabStyles() {
+      const labels = {
+        sk: "Keputusan Presiden Kabinet",
+        pemberitahuan: "Surat Pemberitahuan Resmi",
+        perintah: "Surat Perintah Resmi",
+        tugas: "Surat Tugas Resmi",
+        edaran: "Surat Edaran Resmi"
+      };
+      document.getElementById("active-doc-label").textContent = labels[state.docType] || "Naskah Dinas";
+
+      const wrapMemutuskan = document.getElementById("wrap-break-memutuskan");
+      const wrapLampiran = document.getElementById("wrap-break-lampiran");
+      if (wrapMemutuskan) wrapMemutuskan.style.display = state.docType === "sk" ? "flex" : "none";
+      if (wrapLampiran) wrapLampiran.style.display = state.docType === "sk" ? "flex" : "none";
+
+      document.querySelectorAll(".doc-tab").forEach((btn) => {
+        const isCurrent = btn.getAttribute("data-type") === state.docType;
+        if (isCurrent) {
+          btn.className = "doc-tab rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer bg-[#0f294a] text-white shadow-xs" + (btn.getAttribute("data-type") === "edaran" ? " col-span-2 sm:col-span-2" : "");
+        } else {
+          btn.className = "doc-tab rounded-xl px-3 py-2 text-xs font-semibold transition cursor-pointer bg-white text-slate-700 border border-slate-200 hover:bg-slate-100" + (btn.getAttribute("data-type") === "edaran" ? " col-span-2 sm:col-span-2" : "");
+        }
+      });
+    }
+
+    /**
+     * Sinkronkan tombol preset ukuran logo dengan nilai logoSize saat ini
+     */
+    function syncLogoPresetButtons() {
+      document.querySelectorAll(".logo-preset-btn").forEach((btn) => {
+        const presetVal = Number(btn.getAttribute("data-logo-preset"));
+        if (presetVal === Number(state.assets.logoSize)) {
+          btn.className = "logo-preset-btn rounded-md border border-[#0f294a] bg-[#0f294a] py-1 text-[11px] font-semibold text-white cursor-pointer";
+        } else {
+          btn.className = "logo-preset-btn rounded-md border border-slate-200 bg-slate-50 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer";
+        }
+      });
+    }
+
+    /**
+     * Render daftar Batas Halaman Kustom pada panel kontrol
+     */
+    function renderCustomBreaksList() {
+      const listEl = document.getElementById("custom-breaks-list");
+      if (!listEl) return;
+
+      if (!state.pageBreaks.customBreaks.length) {
+        listEl.innerHTML = `<p class="text-[11px] text-slate-500 italic">Belum ada batas halaman kustom tambahan.</p>`;
+        return;
+      }
+
+      listEl.innerHTML = state.pageBreaks.customBreaks.map((item, idx) => `
+        <div class="flex items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px]">
+          <div class="flex items-center gap-1.5 min-w-0 flex-1">
+            <span class="font-bold text-[#0f294a] shrink-0">#${idx + 1}</span>
+            <input
+              type="text"
+              data-break-label="${idx}"
+              value="${escapeHtml(item.label)}"
+              class="w-full rounded border border-slate-200 px-1.5 py-0.5 text-[11px] text-slate-800"
+              placeholder="Label batas halaman..."
+            />
+          </div>
+          <select data-break-pos="${idx}" class="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+            <option value="before_sig" ${item.pos === "before_sig" ? "selected" : ""}>Sebelum TTD</option>
+            <option value="mid_body" ${item.pos === "mid_body" ? "selected" : ""}>Tengah Isi</option>
+            <option value="end_doc" ${item.pos === "end_doc" ? "selected" : ""}>Akhir Naskah</option>
+          </select>
+          <button type="button" data-remove-break="${idx}" class="text-rose-600 font-semibold hover:underline cursor-pointer shrink-0">
+            Hapus
+          </button>
+        </div>
+      `).join("");
+
+      listEl.querySelectorAll("[data-break-label]").forEach((input) => {
+        input.addEventListener("input", (e) => {
+          const idx = Number(e.target.getAttribute("data-break-label"));
+          state.pageBreaks.customBreaks[idx].label = e.target.value;
+          renderPaper();
+        });
+      });
+
+      listEl.querySelectorAll("[data-break-pos]").forEach((sel) => {
+        sel.addEventListener("change", (e) => {
+          const idx = Number(e.target.getAttribute("data-break-pos"));
+          state.pageBreaks.customBreaks[idx].pos = e.target.value;
+          renderPaper();
+        });
+      });
+
+      listEl.querySelectorAll("[data-remove-break]").forEach((btn) => {
+        btn.addEventListener("click", (e) => {
+          const idx = Number(e.target.getAttribute("data-remove-break"));
+          state.pageBreaks.customBreaks.splice(idx, 1);
+          renderCustomBreaksList();
+          renderPaper();
+        });
+      });
+    }
+
+    /**
+     * Render form dinamis sesuai jenis naskah yang dipilih
+     */
+    function renderDynamicForm() {
+      const container = document.getElementById("dynamic-fields");
+
+      if (state.docType === "sk") {
+        container.innerHTML = `
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">
+            3. Struktur Surat Keputusan (SK)
+          </h2>
+          <div>
+            <label for="sk-tentang" class="block text-xs font-semibold text-slate-700 mb-1">Tentang (Judul Keputusan)</label>
+            <textarea id="sk-tentang" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none">${escapeHtml(state.sk.tentang)}</textarea>
+          </div>
+          <div>
+            <label for="sk-menimbang" class="block text-xs font-semibold text-slate-700 mb-1">Menimbang (1 poin per baris)</label>
+            <textarea id="sk-menimbang" rows="4" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none">${escapeHtml(state.sk.menimbang.join("\n"))}</textarea>
+          </div>
+          <div>
+            <label for="sk-memperhatikan" class="block text-xs font-semibold text-slate-700 mb-1">Memperhatikan</label>
+            <textarea id="sk-memperhatikan" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900 focus:border-[#0f294a] focus:outline-none">${escapeHtml(state.sk.memperhatikan)}</textarea>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-700 mb-1.5">Diktum Menetapkan (KESATU, KEDUA, dst.)</label>
+            <div id="sk-diktum-list" class="space-y-2">
+              ${state.sk.diktum.map((d, idx) => `
+                <div class="rounded-xl border border-slate-200 bg-slate-50/70 p-2.5 space-y-1.5">
+                  <div class="flex items-center justify-between gap-2">
+                    <div class="flex items-center gap-2">
+                      <input type="text" data-diktum-label="${idx}" value="${escapeHtml(d.label)}" class="w-28 rounded-lg border border-slate-300 bg-white px-2 py-1 text-[11px] font-bold text-slate-800" />
+                      <label class="inline-flex items-center gap-1 text-[11px] font-medium text-[#0f294a] cursor-pointer">
+                        <input type="checkbox" data-diktum-break="${idx}" ${d.breakBefore ? "checked" : ""} class="h-3.5 w-3.5 rounded border-slate-300 text-[#0f294a]" />
+                        <span>Batas Halaman</span>
+                      </label>
+                    </div>
+                    ${state.sk.diktum.length > 1 ? `<button type="button" data-remove-diktum="${idx}" class="text-[11px] font-semibold text-rose-600 hover:underline cursor-pointer">Hapus</button>` : ""}
+                  </div>
+                  <textarea data-diktum-isi="${idx}" rows="2" class="w-full rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-xs text-slate-900">${escapeHtml(d.isi)}</textarea>
+                </div>
+              `).join("")}
+            </div>
+            <button type="button" id="btn-add-diktum" class="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-slate-400 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 cursor-pointer">
+              + Tambah Diktum Menetapkan
+            </button>
+          </div>
+          <label class="flex items-center gap-2 pt-1 text-xs font-medium text-slate-700 cursor-pointer">
+            <input id="sk-lampiran-toggle" type="checkbox" ${state.sk.sertakanLampiran ? "checked" : ""} class="h-4 w-4 rounded border-slate-300 text-[#0f294a]" />
+            Sertakan Lampiran I (Susunan Kabinet 2026/2027) &amp; Rangkap Jabatan
+          </label>
+        `;
+
+        document.getElementById("sk-tentang").addEventListener("input", (e) => { state.sk.tentang = e.target.value; renderPaper(); });
+        document.getElementById("sk-menimbang").addEventListener("input", (e) => {
+          state.sk.menimbang = e.target.value.split("\n").map(s => s.trim()).filter(Boolean);
+          renderPaper();
+        });
+        document.getElementById("sk-memperhatikan").addEventListener("input", (e) => { state.sk.memperhatikan = e.target.value; renderPaper(); });
+        document.getElementById("sk-lampiran-toggle").addEventListener("change", (e) => { state.sk.sertakanLampiran = e.target.checked; renderPaper(); });
+
+        document.querySelectorAll("[data-diktum-label]").forEach((el) => {
+          el.addEventListener("input", (e) => {
+            const i = Number(e.target.getAttribute("data-diktum-label"));
+            state.sk.diktum[i].label = e.target.value;
+            renderPaper();
+          });
+        });
+
+        document.querySelectorAll("[data-diktum-break]").forEach((el) => {
+          el.addEventListener("change", (e) => {
+            const i = Number(e.target.getAttribute("data-diktum-break"));
+            state.sk.diktum[i].breakBefore = e.target.checked;
+            renderPaper();
+          });
+        });
+
+        document.querySelectorAll("[data-diktum-isi]").forEach((el) => {
+          el.addEventListener("input", (e) => {
+            const i = Number(e.target.getAttribute("data-diktum-isi"));
+            state.sk.diktum[i].isi = e.target.value;
+            renderPaper();
+          });
+        });
+
+        document.querySelectorAll("[data-remove-diktum]").forEach((btn) => {
+          btn.addEventListener("click", (e) => {
+            const i = Number(e.target.getAttribute("data-remove-diktum"));
+            state.sk.diktum.splice(i, 1);
+            renderDynamicForm();
+            renderPaper();
+          });
+        });
+
+        document.getElementById("btn-add-diktum").addEventListener("click", () => {
+          const ordinals = ["KESATU", "KEDUA", "KETIGA", "KEEMPAT", "KELIMA", "KEENAM", "KETUJUH", "KEDELAPAN", "KESEMBILAN", "KESEPULUH"];
+          const nextLabel = ordinals[state.sk.diktum.length] || `KE-${state.sk.diktum.length + 1}`;
+          state.sk.diktum.push({ label: nextLabel, isi: "Uraian ketentuan baru.", breakBefore: false });
+          renderDynamicForm();
+          renderPaper();
+        });
+        return;
+      }
+
+      if (state.docType === "pemberitahuan") {
+        container.innerHTML = `
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">
+            3. Isi Surat Pemberitahuan
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label for="pb-sifat" class="block text-xs font-semibold text-slate-700 mb-1">Sifat Surat</label>
+              <input id="pb-sifat" type="text" value="${escapeHtml(state.pemberitahuan.sifat)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900" />
+            </div>
+            <div>
+              <label for="pb-lampiran" class="block text-xs font-semibold text-slate-700 mb-1">Lampiran</label>
+              <input id="pb-lampiran" type="text" value="${escapeHtml(state.pemberitahuan.lampiran)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900" />
+            </div>
+          </div>
+          <div>
+            <label for="pb-hal" class="block text-xs font-semibold text-slate-700 mb-1">Hal / Perihal</label>
+            <input id="pb-hal" type="text" value="${escapeHtml(state.pemberitahuan.hal)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900" />
+          </div>
+          <div>
+            <label for="pb-tujuan" class="block text-xs font-semibold text-slate-700 mb-1">Kepada Yth.</label>
+            <textarea id="pb-tujuan" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.pemberitahuan.tujuan)}</textarea>
+          </div>
+          <div>
+            <label for="pb-pembuka" class="block text-xs font-semibold text-slate-700 mb-1">Kalimat Pembuka</label>
+            <textarea id="pb-pembuka" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.pemberitahuan.pembuka)}</textarea>
+          </div>
+          <div>
+            <label for="pb-poin" class="block text-xs font-semibold text-slate-700 mb-1">Poin Pemberitahuan (1 poin per baris)</label>
+            <textarea id="pb-poin" rows="4" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.pemberitahuan.isiPoin.join("\n"))}</textarea>
+          </div>
+          <div>
+            <label for="pb-penutup" class="block text-xs font-semibold text-slate-700 mb-1">Kalimat Penutup</label>
+            <textarea id="pb-penutup" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.pemberitahuan.penutup)}</textarea>
+          </div>
+        `;
+
+        document.getElementById("pb-sifat").addEventListener("input", (e) => { state.pemberitahuan.sifat = e.target.value; renderPaper(); });
+        document.getElementById("pb-lampiran").addEventListener("input", (e) => { state.pemberitahuan.lampiran = e.target.value; renderPaper(); });
+        document.getElementById("pb-hal").addEventListener("input", (e) => { state.pemberitahuan.hal = e.target.value; renderPaper(); });
+        document.getElementById("pb-tujuan").addEventListener("input", (e) => { state.pemberitahuan.tujuan = e.target.value; renderPaper(); });
+        document.getElementById("pb-pembuka").addEventListener("input", (e) => { state.pemberitahuan.pembuka = e.target.value; renderPaper(); });
+        document.getElementById("pb-poin").addEventListener("input", (e) => {
+          state.pemberitahuan.isiPoin = e.target.value.split("\n").map(s => s.trim()).filter(Boolean);
+          renderPaper();
+        });
+        document.getElementById("pb-penutup").addEventListener("input", (e) => { state.pemberitahuan.penutup = e.target.value; renderPaper(); });
+        return;
+      }
+
+      if (state.docType === "perintah") {
+        container.innerHTML = `
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">
+            3. Isi Surat Perintah
+          </h2>
+          <div>
+            <label for="sp-dasar" class="block text-xs font-semibold text-slate-700 mb-1">Dasar</label>
+            <textarea id="sp-dasar" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.perintah.dasar)}</textarea>
+          </div>
+          <div>
+            <label for="sp-nama" class="block text-xs font-semibold text-slate-700 mb-1">Kepada — Nama Pejabat / Pelaksana</label>
+            <input id="sp-nama" type="text" value="${escapeHtml(state.perintah.kepadaNama)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900" />
+          </div>
+          <div>
+            <label for="sp-jabatan" class="block text-xs font-semibold text-slate-700 mb-1">Kepada — Jabatan</label>
+            <input id="sp-jabatan" type="text" value="${escapeHtml(state.perintah.kepadaJabatan)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900" />
+          </div>
+          <div>
+            <label for="sp-untuk" class="block text-xs font-semibold text-slate-700 mb-1">Untuk (Rincian Perintah)</label>
+            <textarea id="sp-untuk" rows="4" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.perintah.untuk)}</textarea>
+          </div>
+          <div>
+            <label for="sp-waktu" class="block text-xs font-semibold text-slate-700 mb-1">Waktu &amp; Tempat Pelaksanaan</label>
+            <input id="sp-waktu" type="text" value="${escapeHtml(state.perintah.waktuTempat)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900" />
+          </div>
+        `;
+
+        document.getElementById("sp-dasar").addEventListener("input", (e) => { state.perintah.dasar = e.target.value; renderPaper(); });
+        document.getElementById("sp-nama").addEventListener("input", (e) => { state.perintah.kepadaNama = e.target.value; renderPaper(); });
+        document.getElementById("sp-jabatan").addEventListener("input", (e) => { state.perintah.kepadaJabatan = e.target.value; renderPaper(); });
+        document.getElementById("sp-untuk").addEventListener("input", (e) => { state.perintah.untuk = e.target.value; renderPaper(); });
+        document.getElementById("sp-waktu").addEventListener("input", (e) => { state.perintah.waktuTempat = e.target.value; renderPaper(); });
+        return;
+      }
+
+      if (state.docType === "tugas") {
+        container.innerHTML = `
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">
+            3. Isi Surat Tugas
+          </h2>
+          <div>
+            <label for="st-dasar" class="block text-xs font-semibold text-slate-700 mb-1">Dasar Penugasan</label>
+            <textarea id="st-dasar" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.tugas.dasar)}</textarea>
+          </div>
+          <div>
+            <label for="st-nama" class="block text-xs font-semibold text-slate-700 mb-1">Nama Yang Ditugaskan</label>
+            <input id="st-nama" type="text" value="${escapeHtml(state.tugas.namaPejabat)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900" />
+          </div>
+          <div>
+            <label for="st-jabatan" class="block text-xs font-semibold text-slate-700 mb-1">Jabatan / Kementerian</label>
+            <input id="st-jabatan" type="text" value="${escapeHtml(state.tugas.jabatanPejabat)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900" />
+          </div>
+          <div>
+            <label for="st-uraian" class="block text-xs font-semibold text-slate-700 mb-1">Uraian Tugas</label>
+            <textarea id="st-uraian" rows="3" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.tugas.uraianTugas)}</textarea>
+          </div>
+          <div>
+            <label for="st-waktu" class="block text-xs font-semibold text-slate-700 mb-1">Jangka Waktu / Pelaksanaan</label>
+            <input id="st-waktu" type="text" value="${escapeHtml(state.tugas.jangkaWaktu)}" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900" />
+          </div>
+        `;
+
+        document.getElementById("st-dasar").addEventListener("input", (e) => { state.tugas.dasar = e.target.value; renderPaper(); });
+        document.getElementById("st-nama").addEventListener("input", (e) => { state.tugas.namaPejabat = e.target.value; renderPaper(); });
+        document.getElementById("st-jabatan").addEventListener("input", (e) => { state.tugas.jabatanPejabat = e.target.value; renderPaper(); });
+        document.getElementById("st-uraian").addEventListener("input", (e) => { state.tugas.uraianTugas = e.target.value; renderPaper(); });
+        document.getElementById("st-waktu").addEventListener("input", (e) => { state.tugas.jangkaWaktu = e.target.value; renderPaper(); });
+        return;
+      }
+
+      if (state.docType === "edaran") {
+        container.innerHTML = `
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-500 border-b border-slate-100 pb-1.5">
+            3. Isi Surat Edaran
+          </h2>
+          <div>
+            <label for="se-tentang" class="block text-xs font-semibold text-slate-700 mb-1">Judul / Tentang Edaran</label>
+            <textarea id="se-tentang" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-900">${escapeHtml(state.edaran.tentang)}</textarea>
+          </div>
+          <div>
+            <label for="se-kepada" class="block text-xs font-semibold text-slate-700 mb-1">Sasaran Edaran (Kepada)</label>
+            <textarea id="se-kepada" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.edaran.kepada)}</textarea>
+          </div>
+          <div>
+            <label for="se-isi" class="block text-xs font-semibold text-slate-700 mb-1">Butir Edaran (1 butir per baris)</label>
+            <textarea id="se-isi" rows="4" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.edaran.isiEdaran.join("\n"))}</textarea>
+          </div>
+          <div>
+            <label for="se-penutup" class="block text-xs font-semibold text-slate-700 mb-1">Penutup</label>
+            <textarea id="se-penutup" rows="2" class="w-full rounded-xl border border-slate-300 px-3 py-2 text-xs text-slate-900">${escapeHtml(state.edaran.penutup)}</textarea>
+          </div>
+        `;
+
+        document.getElementById("se-tentang").addEventListener("input", (e) => { state.edaran.tentang = e.target.value; renderPaper(); });
+        document.getElementById("se-kepada").addEventListener("input", (e) => { state.edaran.kepada = e.target.value; renderPaper(); });
+        document.getElementById("se-isi").addEventListener("input", (e) => {
+          state.edaran.isiEdaran = e.target.value.split("\n").map(s => s.trim()).filter(Boolean);
+          renderPaper();
+        });
+        document.getElementById("se-penutup").addEventListener("input", (e) => { state.edaran.penutup = e.target.value; renderPaper(); });
+      }
+    }
+
+    /**
+     * Render elemen Batas Halaman (Page Break) untuk cetak & pratinjau
+     */
+    function renderPageBreak(labelText = "Batas Halaman") {
+      const mode = state.pageBreaks.viewMode;
+      const showMarker = mode === "marker" || mode === "paginated";
+      const markerHtml = showMarker
+        ? `<div class="page-break-marker my-5"><span class="page-break-badge">${escapeHtml(labelText)}</span></div>`
+        : `<div class="no-print my-3 border-t border-dotted border-slate-300"></div>`;
+
+      return `<div class="page-break-before"></div>${markerHtml}`;
+    }
+
+    function renderCustomBreaksAt(positionKey) {
+      return state.pageBreaks.customBreaks
+        .filter((b) => b.pos === positionKey)
+        .map((b) => renderPageBreak(b.label || "Batas Halaman"))
+        .join("");
+    }
+
+    /**
+     * Logo OSIS besar di atas judul surat (dengan fallback otomatis ke beberapa URL Drive)
+     */
+    function renderTopOsisLogo() {
+      if (!state.assets.showLogo) return "";
+      const srcObj = resolveAssetSources(state.assets.logoUrl, DRIVE_ASSETS.logoOsis);
+      const sizePx = Number(state.assets.logoSize) || 136;
+
+      return `
+        <div class="flex flex-col items-center justify-center mb-4">
+          <img
+            src="${escapeHtml(srcObj.src)}"
+            data-alt1="${escapeHtml(srcObj.alt1)}"
+            data-alt2="${escapeHtml(srcObj.alt2)}"
+            alt="Logo OSIS"
+            style="width: ${sizePx}px; height: ${sizePx}px; object-fit: contain;"
+            onerror="if(this.dataset.alt1 && this.src!==this.dataset.alt1){this.src=this.dataset.alt1;}else if(this.dataset.alt2 && this.src!==this.dataset.alt2){this.src=this.dataset.alt2;}else{this.style.display='none';}"
+          />
+        </div>
+      `;
+    }
+
+    /**
+     * Blok Tanda Tangan Tunggal Arofah Alhidayah & Cap Stempel OSIS
+     * (Tanpa kolom tanda tangan Pembina maupun Sekretaris)
+     */
+    function renderSingleSignatureBlock(includePlaceDate = true) {
+      const ttdObj = resolveAssetSources(state.assets.ttdUrl, DRIVE_ASSETS.ttdPresiden);
+      const stempelObj = resolveAssetSources(state.assets.stempelUrl, DRIVE_ASSETS.stempelOsis);
+      const ttdSize = Number(state.assets.ttdSize) || 84;
+      const stempelSize = Number(state.assets.stempelSize) || 108;
+      const stempelX = Number(state.assets.stempelX) || -38;
+      const stempelOpacity = Number(state.assets.stempelOpacity) || 0.88;
+
+      const ttdHtml = state.assets.showTtd
+        ? `<img
+            src="${escapeHtml(ttdObj.src)}"
+            data-alt1="${escapeHtml(ttdObj.alt1)}"
+            data-alt2="${escapeHtml(ttdObj.alt2)}"
+            alt="Tanda Tangan ${escapeHtml(state.presidenNama)}"
+            style="max-height: ${ttdSize}px; max-width: 185px; object-fit: contain;"
+            onerror="if(this.dataset.alt1 && this.src!==this.dataset.alt1){this.src=this.dataset.alt1;}else if(this.dataset.alt2 && this.src!==this.dataset.alt2){this.src=this.dataset.alt2;}else{this.style.display='none';}"
+          />`
+        : `<span class="text-[8.5pt] text-slate-400 italic select-none">(Tanda Tangan Presiden Kabinet)</span>`;
+
+      const stempelHtml = state.assets.showStempel
+        ? `<img
+            src="${escapeHtml(stempelObj.src)}"
+            data-alt1="${escapeHtml(stempelObj.alt1)}"
+            data-alt2="${escapeHtml(stempelObj.alt2)}"
+            alt="Cap Stempel OSIS"
+            style="
+              position: absolute;
+              left: 50%;
+              top: 50%;
+              width: ${stempelSize}px;
+              height: ${stempelSize}px;
+              object-fit: contain;
+              opacity: ${stempelOpacity};
+              transform: translate(calc(-50% + ${stempelX}px), -50%) rotate(-8deg);
+              mix-blend-mode: multiply;
+              pointer-events: none;
+            "
+            onerror="if(this.dataset.alt1 && this.src!==this.dataset.alt1){this.src=this.dataset.alt1;}else if(this.dataset.alt2 && this.src!==this.dataset.alt2){this.src=this.dataset.alt2;}else{this.style.display='none';}"
+          />`
+        : "";
+
+      return `
+        <div class="avoid-break mt-7 flex justify-end">
+          <div class="w-full max-w-[335px] text-center">
+            ${includePlaceDate ? `
+              <div class="text-left mb-3 text-[10pt]">
+                <div class="flex"><span class="w-32">Ditetapkan di</span><span class="mr-2">:</span><span>${escapeHtml(state.tempatDitetapkan)}</span></div>
+                <div class="flex"><span class="w-32">Pada tanggal</span><span class="mr-2">:</span><span>${escapeHtml(state.tanggalSurat)}</span></div>
+              </div>
+            ` : `
+              <div class="mb-3 text-[10pt]">
+                ${escapeHtml(state.tempatDitetapkan)}, ${escapeHtml(state.tanggalSurat)}
+              </div>
+            `}
+            <p class="font-bold uppercase text-[9.5pt] tracking-wide">
+              ${escapeHtml(state.kabinetTitle)}
+            </p>
+            <div class="relative h-24 flex items-center justify-center my-1">
+              ${stempelHtml}
+              <div class="relative z-10 flex items-center justify-center">
+                ${ttdHtml}
+              </div>
+            </div>
+            <p class="font-bold uppercase underline text-[10pt] tracking-wide">
+              ${escapeHtml(state.presidenNama)}
+            </p>
+          </div>
+        </div>
+      `;
+    }
+
+    /**
+     * Render Tabel Lampiran I Susunan Kabinet untuk SK
+     */
+    function renderLampiranSK() {
+      const renderRows = (list) => list.map((item, i) => `
+        <tr>
+          <td class="w-10 text-center">${i + 1}</td>
+          <td class="w-1/2">${escapeHtml(item.jabatan)}</td>
+          <td>${escapeHtml(item.nama)}</td>
+        </tr>
+      `).join("");
+
+      const breakLampiran = state.pageBreaks.breakBeforeLampiran
+        ? renderPageBreak("Batas Halaman — Lampiran I")
+        : `<div class="mt-8 pt-4 border-t border-slate-300"></div>`;
+
+      return `
+        ${breakLampiran}
+        <div>
+          <div class="mb-4 text-[9.5pt] font-bold uppercase leading-snug">
+            <div>LAMPIRAN I</div>
+            <div>${escapeHtml(state.sk.judul)}</div>
+            <div>NOMOR: ${escapeHtml(state.nomorSurat)}</div>
+            <div>TENTANG SUSUNAN MENTERI DAN PEJABAT KABINET</div>
+            <div>${escapeHtml(state.periodeName)}</div>
+          </div>
+
+          <p class="font-bold text-[9.5pt] mt-3 mb-1">A. PIMPINAN KABINET</p>
+          <table class="naskah-table">
+            <thead>
+              <tr><th class="w-10 text-center">NO.</th><th>JABATAN</th><th>NAMA PEJABAT</th></tr>
+            </thead>
+            <tbody>${renderRows(KABINET_DATA.pimpinan)}</tbody>
+          </table>
+
+          <p class="font-bold text-[9.5pt] mt-3 mb-1">B. SEKRETARIAT KABINET</p>
+          <table class="naskah-table">
+            <thead>
+              <tr><th class="w-10 text-center">NO.</th><th>JABATAN</th><th>NAMA PEJABAT</th></tr>
+            </thead>
+            <tbody>${renderRows(KABINET_DATA.sekretariat)}</tbody>
+          </table>
+
+          <p class="font-bold text-[9.5pt] mt-3 mb-1">C. BENDAHARA KABINET</p>
+          <table class="naskah-table">
+            <thead>
+              <tr><th class="w-10 text-center">NO.</th><th>JABATAN</th><th>NAMA PEJABAT</th></tr>
+            </thead>
+            <tbody>${renderRows(KABINET_DATA.bendahara)}</tbody>
+          </table>
+
+          <p class="font-bold text-[9.5pt] mt-3 mb-1">D. MENTERI KOORDINATOR</p>
+          <table class="naskah-table">
+            <thead>
+              <tr><th class="w-10 text-center">NO.</th><th>JABATAN</th><th>NAMA PEJABAT</th></tr>
+            </thead>
+            <tbody>${renderRows(KABINET_DATA.menko)}</tbody>
+          </table>
+
+          <p class="font-bold text-[9.5pt] mt-3 mb-1">E. MENTERI BIDANG</p>
+          <table class="naskah-table">
+            <thead>
+              <tr><th class="w-10 text-center">NO.</th><th>JABATAN</th><th>NAMA PEJABAT</th></tr>
+            </thead>
+            <tbody>${renderRows(KABINET_DATA.menteriBidang)}</tbody>
+          </table>
+
+          <div class="avoid-break mt-4 text-[9.5pt]">
+            <p class="font-bold mb-1">F. KETENTUAN RANGKAP JABATAN</p>
+            ${KABINET_DATA.rangkapJabatan.map(line => `<p class="mb-1">${escapeHtml(line)}</p>`).join("")}
+            <p class="mt-2 italic text-[9pt]">
+              Rangkap jabatan tersebut dicantumkan secara terbuka dalam susunan kabinet dan tidak dianggap sebagai duplikasi data pejabat.
+            </p>
+          </div>
+
+          ${renderSingleSignatureBlock(false)}
+          ${renderCustomBreaksAt("end_doc")}
+        </div>
+      `;
+    }
+
+    /**
+     * Terapkan skala preview agar kertas putih kelihatan penuh (full)
+     */
+    function applyFullPaperScale() {
+      const stage = document.getElementById("preview-stage");
+      const box = document.getElementById("paper-scale-box");
+      const paper = document.getElementById("paper-preview");
+      if (!stage || !box || !paper) return;
+
+      paper.classList.toggle("paginated-mode", state.pageBreaks.viewMode === "paginated");
+
+      const paperWidth = paper.offsetWidth || 794;
+      const availableWidth = Math.max(260, stage.clientWidth - 16);
+
+      let scale = 1;
+      if (state.pageBreaks.zoomMode === "fit") {
+        scale = Math.min(1, availableWidth / paperWidth);
+      } else {
+        scale = Number(state.pageBreaks.zoomMode) || 1;
+      }
+
+      box.style.transform = `scale(${scale})`;
+      const scaledHeight = (paper.scrollHeight || 1122) * scale;
+      box.style.height = `${Math.ceil(scaledHeight + 14)}px`;
+      box.style.width = `${Math.ceil(paperWidth * scale)}px`;
+    }
+
+    /**
+     * Render Konten Utama Kertas Putih Sesuai Jenis Surat
+     */
+    function renderPaper() {
+      const paper = document.getElementById("paper-preview");
+      const ttdBreak = state.pageBreaks.breakBeforeTtd ? renderPageBreak("Batas Halaman — Tanda Tangan") : "";
+      const beforeSigCustom = renderCustomBreaksAt("before_sig");
+      const midBodyCustom = renderCustomBreaksAt("mid_body");
+      const endDocCustom = renderCustomBreaksAt("end_doc");
+
+      if (state.docType === "sk") {
+        const letters = ["a", "b", "c", "d", "e", "f", "g", "h"];
+        const menimbangHtml = state.sk.menimbang.map((item, idx) => `
+          <div class="flex items-start gap-2 mb-1.5">
+            <span class="w-5 shrink-0">${letters[idx] || (idx + 1)}.</span>
+            <span class="flex-1 text-justify">${escapeHtml(item)}</span>
+          </div>
+        `).join("");
+
+        const diktumHtml = state.sk.diktum.map((d) => `
+          ${d.breakBefore ? renderPageBreak(`Batas Halaman — ${d.label}`) : ""}
+          <div class="flex items-start gap-3 mb-2">
+            <span class="w-24 shrink-0 font-bold uppercase">${escapeHtml(d.label)}</span>
+            <span class="shrink-0">:</span>
+            <span class="flex-1 text-justify">${escapeHtml(d.isi)}</span>
+          </div>
+        `).join("");
+
+        const memutusBreak = state.pageBreaks.breakBeforeMemutuskan
+          ? renderPageBreak("Batas Halaman — MEMUTUSKAN")
+          : "";
+
+        paper.innerHTML = `
+          ${renderTopOsisLogo()}
+
+          <div class="text-center mb-5">
+            <p class="font-bold uppercase text-[11pt] tracking-wide">${escapeHtml(state.sk.judul)}</p>
+            <p class="font-bold uppercase text-[10pt] mt-0.5">NOMOR: ${escapeHtml(state.nomorSurat)}</p>
+            <p class="font-bold uppercase text-[10pt] mt-3">TENTANG</p>
+            <p class="font-bold uppercase text-[10pt] mt-1 leading-snug">${nl2br(state.sk.tentang)}</p>
+          </div>
+
+          <p class="font-bold uppercase text-[10pt] mb-3">${escapeHtml(state.kabinetTitle)},</p>
+
+          <div class="flex items-start gap-3 mb-3">
+            <span class="w-32 shrink-0 font-semibold">Menimbang</span>
+            <span class="shrink-0">:</span>
+            <div class="flex-1">${menimbangHtml}</div>
+          </div>
+
+          <div class="flex items-start gap-3 mb-4">
+            <span class="w-32 shrink-0 font-semibold">Memperhatikan</span>
+            <span class="shrink-0">:</span>
+            <div class="flex-1 text-justify">${escapeHtml(state.sk.memperhatikan)}</div>
+          </div>
+
+          ${midBodyCustom}
+          ${memutusBreak}
+
+          <div class="text-center font-bold uppercase tracking-widest text-[10.5pt] my-4">
+            MEMUTUSKAN:
+          </div>
+
+          <div class="flex items-start gap-3 mb-3">
+            <span class="w-32 shrink-0 font-semibold">Menetapkan</span>
+            <span class="shrink-0">:</span>
+            <div class="flex-1">${diktumHtml}</div>
+          </div>
+
+          ${beforeSigCustom}
+          ${ttdBreak}
+          ${renderSingleSignatureBlock(true)}
+          ${state.sk.sertakanLampiran ? renderLampiranSK() : endDocCustom}
+        `;
+        requestAnimationFrame(applyFullPaperScale);
+        return;
+      }
+
+      if (state.docType === "pemberitahuan") {
+        const poinHtml = state.pemberitahuan.isiPoin.map((p, i) => `
+          <li class="mb-1.5 text-justify"><span class="font-semibold">${i + 1}.</span> ${escapeHtml(p)}</li>
+        `).join("");
+
+        paper.innerHTML = `
+          ${renderTopOsisLogo()}
+
+          <div class="text-center mb-5">
+            <p class="font-bold uppercase underline text-[11pt] tracking-wider">SURAT PEMBERITAHUAN</p>
+            <p class="text-[10pt] mt-1">Nomor: ${escapeHtml(state.nomorSurat)}</p>
+          </div>
+
+          <div class="mb-5 text-[10pt] space-y-1">
+            <div class="flex"><span class="w-24 shrink-0">Sifat</span><span class="mr-2">:</span><span class="font-medium">${escapeHtml(state.pemberitahuan.sifat)}</span></div>
+            <div class="flex"><span class="w-24 shrink-0">Lampiran</span><span class="mr-2">:</span><span>${escapeHtml(state.pemberitahuan.lampiran)}</span></div>
+            <div class="flex"><span class="w-24 shrink-0">Hal</span><span class="mr-2">:</span><span class="font-semibold">${escapeHtml(state.pemberitahuan.hal)}</span></div>
+          </div>
+
+          <div class="mb-5 text-[10pt]">
+            <p>Kepada Yth.</p>
+            <p class="font-semibold mt-0.5">${nl2br(state.pemberitahuan.tujuan)}</p>
+            <p class="mt-0.5">di Tempat</p>
+          </div>
+
+          <div class="text-[10pt] space-y-3">
+            <p class="text-justify">${nl2br(state.pemberitahuan.pembuka)}</p>
+            ${midBodyCustom}
+            <ul class="pl-3 space-y-1">${poinHtml}</ul>
+            <p class="text-justify">${nl2br(state.pemberitahuan.penutup)}</p>
+          </div>
+
+          ${beforeSigCustom}
+          ${ttdBreak}
+          ${renderSingleSignatureBlock(false)}
+          ${endDocCustom}
+        `;
+        requestAnimationFrame(applyFullPaperScale);
+        return;
+      }
+
+      if (state.docType === "perintah") {
+        paper.innerHTML = `
+          ${renderTopOsisLogo()}
+
+          <div class="text-center mb-6">
+            <p class="font-bold uppercase underline text-[11pt] tracking-wider">SURAT PERINTAH</p>
+            <p class="text-[10pt] mt-1">Nomor: ${escapeHtml(state.nomorSurat)}</p>
+          </div>
+
+          <div class="text-[10pt] space-y-4">
+            <div class="flex items-start gap-3">
+              <span class="w-24 shrink-0 font-semibold">Dasar</span>
+              <span class="shrink-0">:</span>
+              <div class="flex-1 text-justify">${nl2br(state.perintah.dasar)}</div>
+            </div>
+
+            ${midBodyCustom}
+
+            <div class="text-center font-bold uppercase tracking-widest text-[10.5pt] my-4">
+              MEMERINTAHKAN:
+            </div>
+
+            <div class="flex items-start gap-3">
+              <span class="w-24 shrink-0 font-semibold">Kepada</span>
+              <span class="shrink-0">:</span>
+              <div class="flex-1">
+                <p class="font-bold uppercase">${escapeHtml(state.perintah.kepadaNama)}</p>
+                <p>${escapeHtml(state.perintah.kepadaJabatan)}</p>
+              </div>
+            </div>
+
+            <div class="flex items-start gap-3">
+              <span class="w-24 shrink-0 font-semibold">Untuk</span>
+              <span class="shrink-0">:</span>
+              <div class="flex-1 text-justify">${nl2br(state.perintah.untuk)}</div>
+            </div>
+
+            <div class="flex items-start gap-3">
+              <span class="w-24 shrink-0 font-semibold">Pelaksanaan</span>
+              <span class="shrink-0">:</span>
+              <div class="flex-1 text-justify">${escapeHtml(state.perintah.waktuTempat)}</div>
+            </div>
+          </div>
+
+          ${beforeSigCustom}
+          ${ttdBreak}
+          ${renderSingleSignatureBlock(true)}
+          ${endDocCustom}
+        `;
+        requestAnimationFrame(applyFullPaperScale);
+        return;
+      }
+
+      if (state.docType === "tugas") {
+        paper.innerHTML = `
+          ${renderTopOsisLogo()}
+
+          <div class="text-center mb-6">
+            <p class="font-bold uppercase underline text-[11pt] tracking-wider">SURAT TUGAS</p>
+            <p class="text-[10pt] mt-1">Nomor: ${escapeHtml(state.nomorSurat)}</p>
+          </div>
+
+          <div class="text-[10pt] space-y-4">
+            <p class="text-justify">
+              Yang bertanda tangan di bawah ini, <strong>${escapeHtml(state.kabinetTitle)}</strong> (${escapeHtml(state.orgName)} ${escapeHtml(state.periodeName)}), berdasarkan <em>${escapeHtml(state.tugas.dasar)}</em> dengan ini menugaskan kepada:
+            </p>
+
+            ${midBodyCustom}
+
+            <div class="pl-4 space-y-1.5 border-l-2 border-slate-800">
+              <div class="flex"><span class="w-32 shrink-0 font-semibold">Nama</span><span class="mr-2">:</span><span class="font-bold uppercase">${escapeHtml(state.tugas.namaPejabat)}</span></div>
+              <div class="flex"><span class="w-32 shrink-0 font-semibold">Jabatan</span><span class="mr-2">:</span><span>${escapeHtml(state.tugas.jabatanPejabat)}</span></div>
+              <div class="flex"><span class="w-32 shrink-0 font-semibold">Uraian Tugas</span><span class="mr-2">:</span><span class="text-justify">${escapeHtml(state.tugas.uraianTugas)}</span></div>
+              <div class="flex"><span class="w-32 shrink-0 font-semibold">Waktu Pelaksanaan</span><span class="mr-2">:</span><span>${escapeHtml(state.tugas.jangkaWaktu)}</span></div>
+            </div>
+
+            <p class="text-justify">
+              Demikian surat tugas ini dibuat untuk dilaksanakan dengan penuh tanggung jawab dan dilaporkan hasilnya kepada Presiden Kabinet Bergerak Berdampak.
+            </p>
+          </div>
+
+          ${beforeSigCustom}
+          ${ttdBreak}
+          ${renderSingleSignatureBlock(false)}
+          ${endDocCustom}
+        `;
+        requestAnimationFrame(applyFullPaperScale);
+        return;
+      }
+
+      if (state.docType === "edaran") {
+        const butirHtml = state.edaran.isiEdaran.map((b) => `
+          <p class="text-justify mb-2">${escapeHtml(b)}</p>
+        `).join("");
+
+        paper.innerHTML = `
+          ${renderTopOsisLogo()}
+
+          <div class="text-center mb-5">
+            <p class="font-bold uppercase underline text-[11pt] tracking-wider">SURAT EDARAN</p>
+            <p class="text-[10pt] mt-1">Nomor: ${escapeHtml(state.nomorSurat)}</p>
+            <p class="font-bold uppercase text-[10pt] mt-3">TENTANG</p>
+            <p class="font-bold uppercase text-[10pt] mt-1">${escapeHtml(state.edaran.tentang)}</p>
+          </div>
+
+          <div class="text-[10pt] space-y-3">
+            <p><strong>Kepada Yth.:</strong> ${escapeHtml(state.edaran.kepada)}</p>
+            ${midBodyCustom}
+            <div class="mt-2">${butirHtml}</div>
+            <p class="text-justify mt-3">${escapeHtml(state.edaran.penutup)}</p>
+          </div>
+
+          ${beforeSigCustom}
+          ${ttdBreak}
+          ${renderSingleSignatureBlock(false)}
+          ${endDocCustom}
+        `;
+        requestAnimationFrame(applyFullPaperScale);
+      }
+    }
+
+    /**
+     * Salin teks polos naskah ke clipboard
+     */
+    function copyPlainText() {
+      try {
+        const paper = document.getElementById("paper-preview");
+        const plainText = paper.innerText.replace(/\n{3,}/g, "\n\n").trim();
+
+        const tempArea = document.createElement("textarea");
+        tempArea.value = plainText;
+        tempArea.setAttribute("readonly", "");
+        tempArea.style.position = "absolute";
+        tempArea.style.left = "-9999px";
+        document.body.appendChild(tempArea);
+        tempArea.select();
+        document.execCommand("copy");
+        document.body.removeChild(tempArea);
+
+        showToast("Teks naskah berhasil disalin ke papan klip");
+      } catch (err) {
+        showToast("Gagal menyalin teks naskah");
+      }
+    }
+
+    /**
+     * Unduh naskah siap cetak sebagai berkas .html mandiri
+     */
+    function downloadStandaloneHtml() {
+      try {
+        const paperHtml = document.getElementById("paper-preview").innerHTML;
+        const docContent = `<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>${escapeHtml(state.nomorSurat)} — E-Surat OSIS</title>
+  <style>
+    @page { size: A4 portrait; margin: 15mm 18mm; }
+    body {
+      font-family: Georgia, 'Times New Roman', serif;
+      background: #ffffff;
+      color: #000000;
+      margin: 0 auto;
+      max-width: 210mm;
+      padding: 18mm 20mm;
+      line-height: 1.55;
+      font-size: 10.5pt;
+    }
+    .page-break-marker { display: none; }
+    table { width: 100%; border-collapse: collapse; margin: 8px 0 12px; font-size: 9pt; }
+    th, td { border: 1px solid #111; padding: 5px 8px; text-align: left; vertical-align: top; }
+    .page-break-before { page-break-before: always; break-before: page; }
+    .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+  </style>
+</head>
+<body>
+  ${paperHtml}
+</body>
+</html>`;
+
+        const blob = new Blob([docContent], { type: "text/html;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        const safeCode = (state.nomorSurat || "naskah").replace(/[^a-zA-Z0-9_-]+/g, "_");
+        link.href = url;
+        link.download = `E-Surat_OSIS_${state.docType.toUpperCase()}_${safeCode}.html`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        showToast("Berkas naskah (.html) berhasil diunduh");
+      } catch (err) {
+        showToast("Gagal mengunduh berkas naskah");
+      }
+    }
+
+    function bindFileUpload(inputId, stateKey, labelName) {
+      const el = document.getElementById(inputId);
+      if (!el) return;
+      el.addEventListener("change", (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+          state.assets[stateKey] = ev.target.result;
+          const urlInputMap = {
+            logoUrl: "input-logo-url",
+            ttdUrl: "input-ttd-url",
+            stempelUrl: "input-stempel-url"
+          };
+          const urlEl = document.getElementById(urlInputMap[stateKey]);
+          if (urlEl) urlEl.value = ev.target.result;
+          renderPaper();
+          showToast(`${labelName} lokal berhasil dimuat`);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    /**
+     * Inisialisasi Event Listeners
+     */
+    function initEvents() {
+      // Tab jenis surat
+      document.querySelectorAll(".doc-tab").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          state.docType = btn.getAttribute("data-type");
+          updateActiveTabStyles();
+          renderDynamicForm();
+          renderPaper();
+        });
+      });
+
+      // Preset pejabat
+      document.getElementById("preset-pejabat").addEventListener("change", (e) => {
+        const idx = Number(e.target.value);
+        if (!Number.isNaN(idx) && ALL_PEJABAT[idx]) {
+          applyPejabatPreset(ALL_PEJABAT[idx]);
+          e.target.value = "";
+        }
+      });
+
+      // Skenario cepat
+      document.querySelectorAll(".scenario-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          applyScenario(btn.getAttribute("data-scenario"));
+        });
+      });
+
+      // Kontrol Logo OSIS, Tanda Tangan & Cap Stempel
+      document.getElementById("input-logo-url").value = state.assets.logoUrl;
+      document.getElementById("input-ttd-url").value = state.assets.ttdUrl;
+      document.getElementById("input-stempel-url").value = state.assets.stempelUrl;
+
+      document.getElementById("toggle-logo").addEventListener("change", (e) => {
+        state.assets.showLogo = e.target.checked;
+        renderPaper();
+      });
+      document.getElementById("toggle-ttd").addEventListener("change", (e) => {
+        state.assets.showTtd = e.target.checked;
+        renderPaper();
+      });
+      document.getElementById("toggle-stempel").addEventListener("change", (e) => {
+        state.assets.showStempel = e.target.checked;
+        renderPaper();
+      });
+
+      const rangeLogo = document.getElementById("range-logo-size");
+      const inputLogoPx = document.getElementById("input-logo-px");
+
+      function updateLogoSize(val) {
+        const clamped = Math.max(70, Math.min(220, Number(val) || 136));
+        state.assets.logoSize = clamped;
+        rangeLogo.value = String(clamped);
+        inputLogoPx.value = String(clamped);
+        syncLogoPresetButtons();
+        renderPaper();
+      }
+
+      rangeLogo.addEventListener("input", (e) => updateLogoSize(e.target.value));
+      inputLogoPx.addEventListener("input", (e) => updateLogoSize(e.target.value));
+
+      document.querySelectorAll(".logo-preset-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          updateLogoSize(Number(btn.getAttribute("data-logo-preset")));
+        });
+      });
+
+      document.getElementById("range-ttd-size").addEventListener("input", (e) => {
+        state.assets.ttdSize = Number(e.target.value);
+        document.getElementById("val-ttd-size").textContent = `${state.assets.ttdSize}px`;
+        renderPaper();
+      });
+
+      document.getElementById("range-stempel-size").addEventListener("input", (e) => {
+        state.assets.stempelSize = Number(e.target.value);
+        document.getElementById("val-stempel-size").textContent = `${state.assets.stempelSize}px`;
+        renderPaper();
+      });
+
+      document.getElementById("range-stempel-x").addEventListener("input", (e) => {
+        state.assets.stempelX = Number(e.target.value);
+        document.getElementById("val-stempel-x").textContent = `${state.assets.stempelX}px`;
+        renderPaper();
+      });
+
+      document.getElementById("range-stempel-opacity").addEventListener("input", (e) => {
+        state.assets.stempelOpacity = Number(e.target.value) / 100;
+        document.getElementById("val-stempel-opacity").textContent = `${e.target.value}%`;
+        renderPaper();
+      });
+
+      document.getElementById("input-logo-url").addEventListener("input", (e) => {
+        state.assets.logoUrl = e.target.value;
+        renderPaper();
+      });
+      document.getElementById("input-ttd-url").addEventListener("input", (e) => {
+        state.assets.ttdUrl = e.target.value;
+        renderPaper();
+      });
+      document.getElementById("input-stempel-url").addEventListener("input", (e) => {
+        state.assets.stempelUrl = e.target.value;
+        renderPaper();
+      });
+
+      bindFileUpload("file-logo-upload", "logoUrl", "Logo OSIS");
+      bindFileUpload("file-ttd-upload", "ttdUrl", "Tanda Tangan Arofah Alhidayah");
+      bindFileUpload("file-stempel-upload", "stempelUrl", "Cap Stempel OSIS");
+
+      // Kontrol Batas Halaman
+      document.getElementById("select-page-view-mode").addEventListener("change", (e) => {
+        state.pageBreaks.viewMode = e.target.value;
+        renderPaper();
+      });
+
+      document.getElementById("toggle-break-memutuskan").addEventListener("change", (e) => {
+        state.pageBreaks.breakBeforeMemutuskan = e.target.checked;
+        renderPaper();
+      });
+
+      document.getElementById("toggle-break-ttd").addEventListener("change", (e) => {
+        state.pageBreaks.breakBeforeTtd = e.target.checked;
+        renderPaper();
+      });
+
+      document.getElementById("toggle-break-lampiran").addEventListener("change", (e) => {
+        state.pageBreaks.breakBeforeLampiran = e.target.checked;
+        renderPaper();
+      });
+
+      document.getElementById("btn-add-custom-break").addEventListener("click", () => {
+        const nextNum = state.pageBreaks.customBreaks.length + 1;
+        state.pageBreaks.customBreaks.push({
+          id: `cb_${Date.now()}_${nextNum}`,
+          pos: "before_sig",
+          label: `Batas Halaman ${nextNum}`
+        });
+        renderCustomBreaksList();
+        renderPaper();
+        showToast("Batas halaman kustom ditambahkan");
+      });
+
+      // Kontrol Zoom Preview Kertas Full
+      document.querySelectorAll(".zoom-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const val = btn.getAttribute("data-zoom");
+          state.pageBreaks.zoomMode = val === "fit" ? "fit" : Number(val);
+          document.querySelectorAll(".zoom-btn").forEach((b) => {
+            b.className = "zoom-btn rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 cursor-pointer";
+          });
+          btn.className = "zoom-btn rounded-lg bg-[#0f294a] px-2.5 py-1 text-[11px] font-semibold text-white cursor-pointer";
+          applyFullPaperScale();
+        });
+      });
+
+      window.addEventListener("resize", () => {
+        if (state.pageBreaks.zoomMode === "fit") {
+          applyFullPaperScale();
+        }
+      });
+
+      // Input identitas umum
+      document.getElementById("kabinet-title").addEventListener("input", (e) => { state.kabinetTitle = e.target.value; renderPaper(); });
+      document.getElementById("org-name").addEventListener("input", (e) => { state.orgName = e.target.value; renderPaper(); });
+      document.getElementById("periode-name").addEventListener("input", (e) => { state.periodeName = e.target.value; renderPaper(); });
+      document.getElementById("presiden-nama").addEventListener("input", (e) => { state.presidenNama = e.target.value; renderPaper(); });
+      document.getElementById("tempat-ditetapkan").addEventListener("input", (e) => { state.tempatDitetapkan = e.target.value; renderPaper(); });
+      document.getElementById("nomor-surat").addEventListener("input", (e) => { state.nomorSurat = e.target.value; renderPaper(); });
+      document.getElementById("tanggal-surat").addEventListener("input", (e) => { state.tanggalSurat = e.target.value; renderPaper(); });
+
+      // Tombol aksi top bar
+      document.getElementById("btn-print").addEventListener("click", () => window.print());
+      document.getElementById("btn-copy-text").addEventListener("click", copyPlainText);
+      document.getElementById("btn-download-html").addEventListener("click", downloadStandaloneHtml);
+      document.getElementById("btn-reset-default").addEventListener("click", () => {
+        applyScenario("sk_kabinet");
+      });
+    }
+
+    // Jalankan inisialisasi saat DOM siap
+    window.addEventListener("DOMContentLoaded", () => {
+      populatePejabatDropdown();
+      syncHeaderInputs();
+      syncLogoPresetButtons();
+      renderCustomBreaksList();
+      updateActiveTabStyles();
+      renderDynamicForm();
+      renderPaper();
+      initEvents();
+      setTimeout(applyFullPaperScale, 120);
+    });
+  </script>
+</body>
+</html>
